@@ -143,25 +143,6 @@ written to the output file as soon as they are found.
     support@website.net
     ...
 
-## Screenshots
-
-### Terminal Progress Example
-
-  -----------------------------------------------------------------------
-  Progress bar and per-file output
-
-  -----------------------------------------------------------------------
-
-Progress bar and per-file output
-
-### Example Output File
-
-  -----------------------------------------------------------------------
-  Emails found output
-
-  -----------------------------------------------------------------------
-
-Emails found output
 
 ## FAQ
 
