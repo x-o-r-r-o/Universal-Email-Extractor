@@ -1,0 +1,13 @@
+pdfplumber
+pytesseract
+pillow
+python-docx
+openpyxl
+xlrd
+pandas
+striprtf
+odfpy
+extract-msg
+chardet
+filetype
+tqdm
