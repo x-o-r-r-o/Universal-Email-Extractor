@@ -41,8 +41,8 @@ written to the output file as soon as they are found.
 
 ### 1. Clone the repository
 
-    git clone https://github.com/yourusername/universal-email-extractor.git
-    cd universal-email-extractor
+    git clone https://github.com/x-o-r-r-o/Universal-Email-Extractor.git
+    cd Universal-Email-Extractor
 
 ### 2. Install Tesseract OCR
 
