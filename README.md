@@ -61,19 +61,19 @@ setup information for developers and technical users.
     -   **Ubuntu/Debian:**
 
     ```{=html}
-    -   sudo apt-get install tesseract-ocr
+    sudo apt-get install tesseract-ocr
     ```
 
-    ```{=html}
     -   **Windows:** Download and install from:
-        https://github.com/tesseract-ocr/tesseract/wiki Ensure
-        `tesseract` is in your system PATH.
+    ```{=html}
+    https://github.com/tesseract-ocr/tesseract/wiki Ensure
+    `tesseract` is in your system PATH.
     ```
 
     -   **macOS (Homebrew):**
 
     ```{=html}
-    -   brew install tesseract
+    brew install tesseract
     ```
 
 4.  **Prepare blocklists**
@@ -116,9 +116,9 @@ setup information for developers and technical users.
   `-l`, `--log`         Log file                                 `extractor.log`
 
   `-d`, `--domains`     Disposable email domains file            `disposable_domains.txt`
+  
+  `-b`, `--blocked_domains`     Blocked URL                              `blocked_domains.txt`
 
-  `-b`,                 Blocked URL                              `blocked_domains.txt`
-  `--blocked_domains`   domains/substrings/extensions file       
   -----------------------------------------------------------------------------------------
 
 ## Filtering Logic
