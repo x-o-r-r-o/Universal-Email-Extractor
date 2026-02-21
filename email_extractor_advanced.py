@@ -2,28 +2,21 @@ import os
 import re
 import csv
 import json
-import threading
 import tempfile
 import shutil
+import multiprocessing
+import threading
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
+from concurrent.futures import ProcessPoolExecutor, as_completed
 import chardet
 import pdfplumber
 import pytesseract
 from PIL import Image
-import filetype
-import openpyxl
-import xlrd
-import python_docx
+import docx
 import striprtf
-import odf.opendocument
-import odf.text
-import extract_msg
 
 CHECKPOINT_FILE = 'processed_files.json'
 
-# --- Blocklist and Disposable Domains ---
 def load_blocklist(filepath):
     patterns = []
     with open(filepath, 'r', encoding='utf-8') as f:
@@ -31,7 +24,6 @@ def load_blocklist(filepath):
             entry = line.strip()
             if not entry or entry.startswith('#'):
                 continue
-            # Wildcards to regex
             entry_regex = re.escape(entry).replace(r'\*', '.*')
             patterns.append(re.compile(entry_regex, re.IGNORECASE))
     return patterns
@@ -43,9 +35,8 @@ def load_disposable_domains(filepath):
     with open(filepath, 'r', encoding='utf-8') as f:
         return [line.strip().lower() for line in f if line.strip()]
 
-# --- Email & URL Extraction ---
 def extract_emails(text, forbidden_words, disposable_domains):
-    email_regex = re.compile(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+')
+    email_regex = re.compile(r'(?<![\w.-])([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)(?![\w.-])')
     results = set()
     for email in email_regex.findall(text):
         local, _, domain = email.lower().partition('@')
@@ -53,31 +44,31 @@ def extract_emails(text, forbidden_words, disposable_domains):
             continue
         if any(domain.endswith(d) for d in disposable_domains):
             continue
-        # Avoid filenames, numbers after @, etc.
         if re.search(r'@\d+$', email) or re.search(r'\.(jpg|png|gif|bmp|tiff|jpeg)$', email, re.I):
             continue
         results.add(email)
     return results
 
 def extract_urls(text, block_patterns):
-    url_regex = re.compile(r'https?://[^\s\'"<>]+')
-    results = set()
-    for url in url_regex.findall(text):
+    url_candidates = []
+    for match in re.finditer(r'https?://', text):
+        start = match.start()
+        end = start
+        while end < len(text) and text[end] not in ' \'",\n\r\t<>[](){},;|':
+            end += 1
+        url = text[start:end]
+        url = url.rstrip('.,;\'"!?)]}')
+        if len(url) < 10 or '.' not in url:
+            continue
         try:
             domain = re.search(r'https?://([^/]+)', url).group(1).lower()
             if is_blocked(domain, block_patterns):
                 continue
-            # Remove trailing punctuation
-            url = url.rstrip('.,;\'"!?)]}')
-            # Split concatenated URLs
-            for u in re.split(r'(https?://)', url):
-                if u.startswith('http'):
-                    results.add(u)
         except Exception:
             continue
-    return results
+        url_candidates.append(url)
+    return set(url_candidates)
 
-# --- File Handlers ---
 def read_text_file(path):
     try:
         with open(path, 'rb') as f:
@@ -106,7 +97,7 @@ def read_image_file(path):
 
 def read_docx_file(path):
     try:
-        doc = python_docx.Document(path)
+        doc = docx.Document(path)
         return '\n'.join([p.text for p in doc.paragraphs])
     except Exception:
         return ''
@@ -118,10 +109,7 @@ def read_rtf_file(path):
     except Exception:
         return ''
 
-# Add other handlers for xls, xlsx, pptx, odt, ods, eml, msg, db, etc.
-
 def extract_archive(path, temp_dir):
-    # Extract and return list of files inside archive
     extracted_files = []
     try:
         if path.lower().endswith('.zip'):
@@ -142,7 +130,6 @@ def process_file(path, forbidden_words, disposable_domains, block_patterns, temp
         text = read_text_file(path)
     elif ext in ('.pdf',):
         text = read_pdf_file(path)
-        # Also OCR for image-based PDFs (not shown here)
     elif ext in ('.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.gif'):
         text = read_image_file(path)
     elif ext in ('.docx',):
@@ -157,7 +144,7 @@ def process_file(path, forbidden_words, disposable_domains, block_patterns, temp
     if text:
         emails = extract_emails(text, forbidden_words, disposable_domains)
         urls = extract_urls(text, block_patterns)
-    return emails, urls, extracted_files
+    return emails, urls, extracted_files, path
 
 def get_all_files(folder):
     for root, _, files in os.walk(folder):
@@ -174,64 +161,85 @@ def load_checkpoint():
             return set(json.load(f))
     return set()
 
-def main(folder, email_out, url_out, csv_out, blocklist_file, disposable_file, forbidden_words):
+def writer(queue, email_out, url_out, csv_out):
+    seen_emails = set()
+    seen_domains = set()
+    with open(email_out, 'a', encoding='utf-8') as ef, \
+         open(url_out, 'a', encoding='utf-8') as uf, \
+         (open(csv_out, 'a', encoding='utf-8', newline='') if csv_out else open(os.devnull, 'w')) as cf:
+        csv_writer = csv.writer(cf) if csv_out else None
+        while True:
+            item = queue.get()
+            if item == 'DONE':
+                break
+            emails, urls, src_file = item
+            for e in emails:
+                if e in seen_emails:
+                    continue
+                seen_emails.add(e)
+                ef.write(e + '\n')
+                if csv_writer:
+                    csv_writer.writerow([e, src_file])
+            for u in urls:
+                try:
+                    domain = re.search(r'https?://([^/]+)', u).group(1).lower()
+                except Exception:
+                    continue
+                if domain in seen_domains:
+                    continue
+                seen_domains.add(domain)
+                uf.write(u + '\n')
+                if csv_writer:
+                    csv_writer.writerow([u, src_file])
+            ef.flush()
+            uf.flush()
+            if csv_writer:
+                cf.flush()
+
+def main(folder, email_out, url_out, csv_out, blocklist_file, disposable_file, forbidden_words, num_processes=4):
     block_patterns = load_blocklist(blocklist_file)
     disposable_domains = load_disposable_domains(disposable_file)
 
     processed_files = load_checkpoint()
     all_files = [f for f in get_all_files(folder) if f not in processed_files]
-    all_emails, all_urls = set(), set()
-    csv_rows = []
-
-    lock = threading.Lock()
     temp_dir = tempfile.mkdtemp()
+    manager = multiprocessing.Manager()
+    queue = manager.Queue()
+
+    writer_thread = threading.Thread(target=writer, args=(queue, email_out, url_out, csv_out))
+    writer_thread.start()
+
     try:
         with tqdm(total=len(all_files), desc="Scanning files", unit="file") as pbar, \
-             ThreadPoolExecutor(max_workers=8) as executor, \
-             open(email_out, 'a', encoding='utf-8') as ef, \
-             open(url_out, 'a', encoding='utf-8') as uf:
+             ProcessPoolExecutor(max_workers=num_processes) as executor:
 
             futures = {executor.submit(process_file, f, forbidden_words, disposable_domains, block_patterns, temp_dir): f for f in all_files}
             for future in as_completed(futures):
-                f = futures[future]
                 try:
-                    emails, urls, extracted_files = future.result()
-                    with lock:
-                        for e in emails - all_emails:
-                            ef.write(e + '\n')
-                            csv_rows.append([e, f])
-                        for u in urls - all_urls:
-                            uf.write(u + '\n')
-                            csv_rows.append([u, f])
-                        all_emails.update(emails)
-                        all_urls.update(urls)
-                        processed_files.add(f)
-                        save_checkpoint(processed_files)
-                    # Enqueue extracted files from archives for processing
+                    emails, urls, extracted_files, src_file = future.result()
+                    queue.put((emails, urls, src_file))
+                    processed_files.add(src_file)
+                    save_checkpoint(processed_files)
                     for efp in extracted_files:
-                        all_files.append(efp)
-                        pbar.total += 1
+                        if os.path.isfile(efp):
+                            all_files.append(efp)
+                            pbar.total += 1
                 except Exception as e:
-                    print(f"[ERROR] {f}: {e}")
+                    print(f"[ERROR]: {e}")
                 finally:
                     pbar.update(1)
-
-        if csv_out:
-            with open(csv_out, 'w', newline='', encoding='utf-8') as cf:
-                writer = csv.writer(cf)
-                writer.writerow(['Value', 'Source File'])
-                writer.writerows(csv_rows)
+        queue.put('DONE')
+        writer_thread.join()
 
         print("\nSummary:")
         print(f"Total files processed: {len(processed_files)}")
-        print(f"Unique emails found: {len(all_emails)}")
-        print(f"Unique URLs found: {len(all_urls)}")
+        print(f"Results written instantly. Check '{email_out}' and '{url_out}'.")
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 if __name__ == '__main__':
     import argparse
-    parser = argparse.ArgumentParser(description="Universal Email & URL Extractor (Multithreaded, OCR, All Formats)")
+    parser = argparse.ArgumentParser(description="Universal Email & URL Extractor (Real-time, Multiprocessing, Dedup by Domain, Clean URLs)")
     parser.add_argument('folder', help='Folder to scan')
     parser.add_argument('-o', '--output', default='emails_found.txt', help='Output file for emails')
     parser.add_argument('-u', '--url_output', default='urls_found.txt', help='Output file for URLs')
@@ -239,6 +247,7 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--blocklist', default='blocked_domains.txt', help='Blocked domains file')
     parser.add_argument('-d', '--disposable', default='disposable_domains.txt', help='Disposable domains file')
     parser.add_argument('-f', '--forbidden', nargs='*', default=['user', 'test', 'demo', 'example', 'sample', 'dummy', 'temp', 'trial', 'no-reply', 'noreply'], help='Forbidden words in emails')
+    parser.add_argument('-p', '--processes', type=int, default=4, help='Number of processes to use')
     args = parser.parse_args()
 
-    main(args.folder, args.output, args.url_output, args.csv_output, args.blocklist, args.disposable, args.forbidden)
+    main(args.folder, args.output, args.url_output, args.csv_output, args.blocklist, args.disposable, args.forbidden, num_processes=args.processes)
