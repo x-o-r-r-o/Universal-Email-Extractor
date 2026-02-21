@@ -158,5 +158,3 @@ MIT License (or your own)
 ## Credits
 
 Developed by x-o-r-r-o.
-
-*For updates, improvements, or support, contact the developer or AI assistant.*
