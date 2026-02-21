@@ -1,215 +1,162 @@
-# Universal Email Extractor
+# Universal Email & URL Extractor
 
-A **production-ready, robust Python program** to extract valid email
-addresses from nearly any file or folder.
-
-Supports text, Office documents (old & new), PDFs, images (with OCR),
-databases, emails, archives, and more. **Real-time output:** Emails are
-written to the output file as soon as they are found.
+A production-ready Python tool for extracting and filtering emails and URLs from nearly any file type, with advanced filtering, real-time output, and robust reporting. This document provides complete usage and setup information for developers and technical users.
 
 ## Features
 
--   **Scans folders recursively** for all supported file types
--   **Extracts emails from:**
-    -   Text/config/code files: `.txt`, `.csv`, `.log`, `.ini`, `.inf`,
-        `.html`, `.htm`, `.asp`, `.aspx`, `.php`, `.js`, `.json`,
-        `.xml`, `.yaml`, `.yml`, `.md`, etc.
-    -   Office documents: `.doc`, `.docx`, `.docm`, `.xls`, `.xlsx`,
-        `.xlsm`, `.ppt`, `.pptx`, `.rtf`, `.odt`, `.ods`, etc.
-    -   PDFs (text-based and image-based with OCR)
-    -   Images: `.jpg`, `.jpeg`, `.png`, `.bmp`, `.tiff`, `.gif`, etc.
-        (using Tesseract OCR)
-    -   Databases: `.db`, `.sqlite`, `.sqlite3`, `.sql`, `.mdb`,
-        `.accdb`
-    -   Email files: `.eml`, `.msg`
-    -   Archives: `.zip`, `.tar`, `.gz`, `.rar` (recursive extraction)
--   **Strict filtering:** Avoids false positives from filenames and fake
-    emails
--   **Progress bar** and live per-file logging
--   **Writes emails immediately** to output file
--   **Deduplicates** emails automatically
--   **Robust error handling** and logging
--   **Easy to extend** for new file types
+* Recursive folder scan (processes all files in a directory tree)
+* Multi-format support: text, CSV, Excel, Word, PowerPoint, PDF, HTML, JSON, images (OCR), archives, databases, emails, and more
+* Real-time output: emails and URLs are written to separate files as found
+* Deduplication: no repeated emails or URLs
+* Strict filtering:
+  + Excludes emails with forbidden words (user, test, demo, etc.)
+  + Excludes emails from disposable/temporary providers
+  + Excludes URLs by domain, extension, substring, or wildcard (including partial matches, wildcards, and domain extensions)
+* Progress bar and per-file logging
+* Summary report at completion
+* Handles concatenated URLs and ensures only clean URLs are exported
+* Fault-tolerant: logs errors, skips unreadable files, and continues
+* Easy to extend for new file types
 
 ## Requirements
 
--   **Python 3.7+**
--   **Tesseract OCR** (for image and image-based PDF extraction)
--   Python packages (see below)
+* Python 3.8 or newer
+* Tesseract OCR (for image/PDF OCR support)
+* Python packages (see requirements.txt)
 
-## Installation
+## Installation Steps
 
-### 1. Clone the repository
+1. **Clone the repository**
 
-    git clone https://github.com/x-o-r-r-o/Universal-Email-Extractor.git
-    cd Universal-Email-Extractor
+* git clone <your-repo-url>
+  cd Universal-Email-Extractor
 
-### 2. Install Tesseract OCR
+1. **Install Python dependencies**
 
--   **Windows:** Download and install from [Tesseract at UB
-    Mannheim](https://github.com/tesseract-ocr/tesseract/wiki)
--   **Linux:** `sudo apt-get install tesseract-ocr`
--   **macOS (Homebrew):** `brew install tesseract`
+* pip install -r requirements.txt
+* *(For .doc/.ppt support, also run: pip install textract)*
 
-### 3. Install Python dependencies
-
-    pip install -r requirements.txt
-
-`requirements.txt`**:**
-
-    pdfplumber
-    pytesseract
-    pillow
-    python-docx
-    openpyxl
-    xlrd
-    pandas
-    striprtf
-    odfpy
-    extract-msg
-    chardet
-    filetype
-    tqdm
+1. **Install Tesseract OCR**
+   * **Ubuntu/Debian:**
+   * sudo apt-get install tesseract-ocr
+   * **Windows:** Download and install from: https://github.com/tesseract-ocr/tesseract/wiki Ensure tesseract is in your system PATH.
+   * **macOS (Homebrew):**
+   * brew install tesseract
+2. **Prepare blocklists**
+   * disposable\_domains.txt: one disposable email domain per line
+   * blocked\_domains.txt: one substring, domain, or extension per line (e.g., gov, .ru, \*.gov.pk). All entries are treated as substrings for blocking. Wildcards, dots, and extensions are handled automatically.
 
 ## Usage
 
-### Basic Command
+### Basic command
 
-    python email_extractor.py <folder_to_scan>
+python extractor.py /path/to/scan
 
-### Common Options
+### Custom output and log files
 
-  -----------------------------------------------------------------------------
-  Option           Description                             Default
-  ---------------- --------------------------------------- --------------------
-  `-o, --output`   Output file for found emails            `emails_found.txt`
+python extractor.py /path/to/scan -o my\_emails.txt -u my\_urls.txt -l my\_logfile.log
 
-  `-l, --log`      Log file for progress/errors            `extractor.log`
-  -----------------------------------------------------------------------------
+### Custom disposable and blocked domains files
 
-**Example:**
+python extractor.py /path/to/scan -d my\_disposable\_domains.txt -b my\_blocked\_domains.txt
 
-    python email_extractor.py ./data -o results.txt -l run.log
+### Show help
 
-## How It Works
+python extractor.py --help
 
--   **Recursively scans** the given folder for all supported file types.
--   **Extracts text** using the best available method for each file
-    type.
--   **Extracts emails** with strict filtering to avoid false positives:
-    -   Only real, valid email addresses (not filenames or image names)
-    -   Ignores emails ending in file extensions or with numbers after
-        `@`
--   **Writes new emails immediately** to output file (no waiting for the
-    scan to finish).
--   **Shows a progress bar** and per-file status in the terminal.
--   **Logs all actions and errors** to the log file.
+## Command-Line Arguments
 
-## Supported File Types
+| Flag/Argument | Description | Default |
+| --- | --- | --- |
+| folder | (positional) Folder to scan recursively | - |
+| -o, --output | Output file for emails | emails\_found.txt |
+| -u, --url\_output | Output file for URLs | urls\_found.txt |
+| -l, --log | Log file | extractor.log |
+| -d, --domains | Disposable email domains file | disposable\_domains.txt |
+| -b, --blocked\_domains | Blocked URL domains/substrings/extensions file | blocked\_domains.txt |
 
--   **Text/Config:** `.txt`, `.log`, `.ini`, `.inf`, `.html`, `.htm`,
-    `.asp`, `.aspx`, `.php`, `.js`, `.json`, `.xml`, `.yaml`, `.yml`,
-    `.md`
--   **Spreadsheets:** `.csv`, `.xls`, `.xlsx`, `.xlsm`, `.ods`
--   **Documents:** `.doc`, `.docx`, `.docm`, `.rtf`, `.odt`
--   **Presentations:** `.ppt`, `.pptx`
--   **PDFs:** `.pdf`
--   **Images:** `.jpg`, `.jpeg`, `.png`, `.bmp`, `.tiff`, `.gif`
--   **Databases:** `.sqlite`, `.sqlite3`, `.db`, `.sql`, `.mdb`,
-    `.accdb`
--   **Emails:** `.eml`, `.msg`
--   **Archives:** `.zip`, `.tar`, `.gz`, `.rar` (recursive extraction)
+## Filtering Logic
+
+* **Emails**: filtered by forbidden words and disposable domains.
+* **URLs**: filtered by any substring, domain, or extension listed in blocked\_domains.txt (e.g., gov, .ru, gov.pk blocks all such domains, including wildcards and partial matches).
+* Blocklist entries can be plain, with dot, wildcard, or just a substring (all treated as substrings).
+
+## Example Blocklists
+
+**disposable\_domains.txt**
+
+mailinator.com
+tempmail.com
+10minutemail.com
+example.com
+
+**blocked\_domains.txt**
+
+gov
+.gov
+gov.pk
+.gov.pk
+googleapis.com
+fonts.googleapis.com
+xyz
+.ru
+
+*All of these will block any domain containing those substrings, including subdomains and domain extensions.*
+
+## Output Files
+
+* **Emails:** emails\_found.txt (or as specified)
+* **URLs:** urls\_found.txt (or as specified)
+* **Log:** extractor.log (or as specified)
+
+## Main Functions (Defined in extractor.py)
+
+* setup\_logger(logfile): Configures logging
+* load\_disposable\_domains(filepath): Loads disposable email domains
+* load\_blocked\_domains(filepath): Loads blocked URL substrings/extensions
+* extract\_emails\_from\_text(text, disposable\_domains): Extracts and filters emails
+* extract\_urls\_from\_text(text, blocked\_domains): Extracts, splits, and filters clean URLs (handles concatenated URLs and substring blocking)
+* Format-specific file readers: (e.g., read\_text\_file, read\_csv\_file, read\_pdf\_file, etc.)
+* process\_file(file\_path, temp\_dir, disposable\_domains): Detects file type, extracts emails and text
+* scan\_folder(...): Main function to scan, extract, filter, deduplicate, log, and summarize
 
 ## Example Output
 
-**Progress bar and console output:**
+Total files found: 1234
+Compatible files for extraction: 1022
 
-    Total files found: 152
-    Compatible files for extraction: 47
-    Extracting emails:  65%|███████████████▌        | 31/47 [00:04<00:02,  6.90it/s]
-    Processing file 32/47: ./data/contacts.xlsx
-      Found emails in ./data/contacts.xlsx: {'john.doe@email.com', 'info@company.org'}
-    Processing file 33/47: ./data/invoice.pdf
-      Found emails in ./data/invoice.pdf: {'billing@vendor.com'}
-    ...
-    Extraction complete. Unique emails found: 24. See results.txt.
-    Files with emails found: 17 / 47
+--- Extraction Summary ---
+Total unique emails found (before filtering): 400
+Removed due to forbidden words: 12
+Removed due to disposable domains: 25
+Valid emails exported: 363 (see emails\_found.txt)
+Total unique urls found: 150
+Removed due to blocked domains: 24
+Valid urls exported: 126 (see urls\_found.txt)
+Files with emails/urls found: 332 / 1022
 
-**Sample** `emails_found.txt` **output:**
+## Troubleshooting & Possibilities
 
-    john.doe@email.com
-    info@company.org
-    billing@vendor.com
-    support@website.net
-    ...
-
+* **OCR errors:** Ensure Tesseract OCR is installed and in PATH.
+* **Old Office files:** Install textract and system dependencies.
+* **MDB/ACCDB files:** Install pyodbc/msaccessdb if needed.
+* **Large folders:** Script is optimized for memory and real-time writing.
+* **Extend support:** Add new handlers to process\_file for more formats.
 
 ## FAQ
 
-### Q: Why do I need Tesseract OCR?
-
-**A:** Tesseract is required to extract emails from images and
-image-based PDFs. Without it, the program will skip those files.
-
-### Q: How do I add support for more file types?
-
-**A:** Add a new handler function in the script and register its
-extension in the `process_file` function.
-
-### Q: The script is slow on large archives or files. How can I speed it up?
-
-**A:** For huge datasets, consider splitting the folder, running in
-parallel, or excluding archive extraction if not needed.
-
-### Q: I see no emails in the output, but I know there are some.
-
-**A:** Check the log file for errors, make sure the files are supported,
-and that Tesseract is installed for image extraction.
-
-### Q: Can I run this on Windows/Mac/Linux?
-
-**A:** Yes! It works cross-platform, but Tesseract must be installed and
-accessible in your system path.
-
-### Q: Where can I report bugs or contribute?
-
-**A:** Open an issue or pull request on GitHub ([see Contributing
-section](#contribution)).
-
-## Troubleshooting
-
--   **Nothing is extracted:**
-    -   Check that the folder contains supported file types.
-    -   Look at the log file for errors.
-    -   Make sure Tesseract OCR is installed and accessible.
--   **Filenames or fake emails are extracted:**
-    -   The script uses strict filtering, but if you spot a false
-        positive, please [open an issue](#contribution).
--   **Some file types not supported:**
-    -   Extend the `process_file` function with new handlers.
--   **Permission errors:**
-    -   Run as administrator or ensure you have read/write access to the
-        target folders.
-
-## Contribution
-
-Contributions are welcome! - Fork the repo, create a branch, and submit
-a pull request. - Open issues for bugs or feature requests.
+* **Can I block any domain extension or substring?** Yes, just add it to blocked\_domains.txt (e.g., gov, .gov, xyz, .ru, .gov.pk, etc.)
+* **Does it work on Windows, Linux, Mac?** Yes, with Python 3.8+ and Tesseract OCR installed.
+* **Can I use my own block/disposable lists?** Yes, just edit the respective files.
+* **How does it handle concatenated URLs?** It splits and cleans them, so only valid URLs are exported.
+* **What if a file type isn’t supported?** Add a handler in the script and register it in process\_file.
 
 ## License
 
-MIT License
+MIT License (or your own)
 
-## Acknowledgments
+## Credits
 
--   [Tesseract OCR](https://github.com/tesseract-ocr/tesseract)
--   [pandas](https://pandas.pydata.org/)
--   [pdfplumber](https://github.com/jsvine/pdfplumber)
--   [python-docx](https://python-docx.readthedocs.io/)
--   [extract-msg](https://github.com/mattgwwalker/msg-extractor)
--   [tqdm](https://github.com/tqdm/tqdm)
--   And all open-source contributors!
+Developed by Fahad Bin Zahid with AI-powered automation.
 
-## Author
-
-x-o-r-r-o
+*For updates, improvements, or support, contact the developer or AI assistant.*
