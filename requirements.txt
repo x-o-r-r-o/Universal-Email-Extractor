@@ -16,3 +16,4 @@ textract
 pyodbc
 msaccessdb
 python-docx
+tldextract
