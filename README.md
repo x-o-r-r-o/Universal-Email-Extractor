@@ -61,23 +61,20 @@ setup information for developers and technical users.
     -   **Ubuntu/Debian:**
 
     ```{=html}
-    <!-- -->
-    ```
     -   sudo apt-get install tesseract-ocr
+    ```
 
     ```{=html}
-    <!-- -->
-    ```
     -   **Windows:** Download and install from:
         https://github.com/tesseract-ocr/tesseract/wiki Ensure
         `tesseract` is in your system PATH.
+    ```
 
     -   **macOS (Homebrew):**
 
     ```{=html}
-    <!-- -->
-    ```
     -   brew install tesseract
+    ```
 
 4.  **Prepare blocklists**
 
