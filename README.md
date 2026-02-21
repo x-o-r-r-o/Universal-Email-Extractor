@@ -157,6 +157,6 @@ MIT License (or your own)
 
 ## Credits
 
-Developed by Fahad Bin Zahid with AI-powered automation.
+Developed by x-o-r-r-o.
 
 *For updates, improvements, or support, contact the developer or AI assistant.*
