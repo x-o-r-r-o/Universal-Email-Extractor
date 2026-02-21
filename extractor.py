@@ -76,16 +76,40 @@ def extract_emails_from_text(text, disposable_domains):
     return filtered
 
 def extract_urls_from_text(text, blocked_domains):
-    url_regex = r'https?://[^\s"<>\]]+'
-    all_urls = set(re.findall(url_regex, text or ""))
+    # Find all start indices for http(s)://
+    starts = [m.start() for m in re.finditer(r'https?://', text)]
+    candidates = []
+    for i, start in enumerate(starts):
+        end = starts[i + 1] if i + 1 < len(starts) else len(text)
+        url = text[start:end]
+        # Cut off at first whitespace or control character
+        url = re.split(r'[\s"\'<>{}$$$$$$]', url)[0]
+        # Remove trailing punctuation
+        url = url.rstrip('.,;:)}]>\'"')
+        candidates.append(url)
+
+    # Prepare blocklist substrings (as before)
+    block_substrings = set()
+    for domain in blocked_domains:
+        d = domain.lower().strip()
+        d = d.lstrip('*.')
+        if not d or d.startswith('#'):
+            continue
+        block_substrings.add(d)
+
+    def is_blocked(domain):
+        domain = domain.lower().lstrip('www.')
+        for block in block_substrings:
+            if block in domain:
+                return True
+        return False
+
     filtered = set()
-    for url in all_urls:
+    for url in candidates:
         try:
             parsed = urlparse(url)
-            domain = parsed.netloc.lower()
-            if domain.startswith('www.'):
-                domain = domain[4:]
-            if domain in blocked_domains:
+            domain = parsed.netloc.lower().lstrip('www.')
+            if not domain or is_blocked(domain):
                 continue
             filtered.add(url)
         except Exception:
