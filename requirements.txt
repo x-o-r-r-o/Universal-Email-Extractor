@@ -15,5 +15,10 @@ python-pptx
 textract
 pyodbc
 msaccessdb
-python-docx
 tldextract
+streamlit
+idna
+requests
+extract-msg
+rarfile
+argparse
