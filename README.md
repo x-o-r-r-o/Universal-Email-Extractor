@@ -139,23 +139,28 @@ python extractor.py --help
 - extractor.log: Progress and errors
 -----
 ## <a name="unified-requirements.txt"></a>Unified requirements.txt
-streamlit\
 pandas\
-tqdm\
-tldextract\
-idna\
-requests\
+xlrd\
+openpyxl\
+python-docx\
 pdfplumber\
 pytesseract\
 Pillow\
-python-docx\
-striprtf\
+filetype\
 chardet\
-openpyxl\
-xlrd\
-extract-msg\
-pyodbc\
+striprtf\
+odfpy\
+extract_msg\
+tqdm\
+python-pptx\
 textract\
+pyodbc\
+msaccessdb\
+tldextract\
+streamlit\
+idna\
+requests\
+extract-msg\
 rarfile\
 argparse
 
